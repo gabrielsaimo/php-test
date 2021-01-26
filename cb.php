@@ -1,67 +1,122 @@
-<?php
-if(isset($_POST["acao"])){
-    if ($_POST["acao"]=="inserir"){
-        inserirPessoa();
+<?
+        //verifica qual modulo foi recebido
+    if($_REQUEST['_modulo'] == 'pessoa'){
+        $modulo = 'pessoa';
+    }else{
+        $modulo = 'empresas';
     }
-    if ($_POST["acao"]=="alterar"){
-        alterarPessoa();
-    }
-    if($_POST["acao"]=="excluir"){
-        excluirPessoa();
-    }
-}
-
-function abrirBanco() {
-    $conexao = new mysqli("localhost", "root", "root", "crud");
-    return $conexao;
-}
-    function inserirPessoa() {
-        $banco = abrirBanco();
-        $sql = "INSERT INTO pessoa (id ,nome, sexo, criadoem, atualizadoem) 
-        VALUES (rand() * 3333 ,'{$_POST["nome"]}','{$_POST["sexo"]}',sysdate(),sysdate())";
-        $banco->query($sql) === TRUE;
-        $banco->close();
-        voltarIndex(); 
-    }
-
-    function alterarPessoa() {
-        $banco = abrirBanco();
-        $sql = "UPDATE pessoa SET nome='{$_POST["nome"]}',sexo='{$_POST["sexo"]}',atualizadoem=sysdate() WHERE id='{$_POST["id"]}'";
-        $banco->query($sql);
-        $banco->close();
-        voltarIndex();
-    }
-
-    function excluirPessoa() {
-        $banco = abrirBanco();
-        $sql = "DELETE FROM pessoa WHERE id='{$_POST["id"]}'";
-        $banco->query($sql);
-        $banco->close();
-        voltarIndex();
-    }
-
-    function selectAllPessoa() {
-        $banco = abrirBanco();
-        $sql = "SELECT * FROM pessoa ORDER BY nome";
-        $resultado = $banco->query($sql);
-        $banco->close();
-        while($row = mysqli_fetch_array($resultado)) {
-            $grupo[] = $row;
+        //verifica se recebe modulo
+    if(isset($_REQUEST['_modulo'])){ 
+        
+        //indentifica a acao a ser feita
+        if($_REQUEST['_acao']=="u"){ 
+            $acaoss="UPDATE ";
         }
-        return $grupo;
+        elseif($_REQUEST['_acao']=="i"){
+            $acaoss="INSERT INTO ";
+        }
+        elseif($_REQUEST['_acao']=="d"){
+            $acaoss="DELETE FROM ";
+        }
+        //define qual finçao sera realizada 
+        if($_REQUEST['_modulo']=="empresas" && $_REQUEST['_acao']=="u"){
+            alterarPessoa($modulo);
+        }
+        elseif($_REQUEST['_modulo']=="empresas" && $_REQUEST['_acao']=="i"){
+            inserirPessoa($modulo);
+        }
+        elseif($_REQUEST['_modulo']=="empresas" && $_REQUEST['_acao']=="d"){
+            excluirPessoa($modulo);
+        }
+        elseif($_REQUEST['_modulo']=="pessoa" && $_REQUEST['_acao']=="u"){
+            alterarPessoa($modulo);
+        }
+        elseif($_REQUEST['_modulo']=="pessoa" && $_REQUEST['_acao']=="i"){
+            $obj = "(nome,sexo,criadoem,alteradoem,idempresa)";
+            inserirPessoa($modulo); 
+        }
+        elseif($_REQUEST['_modulo']=="pessoa" && $_REQUEST['_acao']=="d"){
+            excluirPessoa($modulo);
+        }
+        
     }
 
-    function selectIdPessoa($id) {
-        $banco = abrirBanco();
-        $sql = "SELECT * FROM pessoa WHERE id=".$id;
-        $resultado = $banco->query($sql);
-        $banco->close();
-        $pessoa = mysqli_fetch_assoc($resultado);
-        return $pessoa;
-    }
+        //funçao que abre o banco de dados MSQLI
+        function abrirBanco() {
+            $conexao = new mysqli("localhost", "root", "root", "crud");
+            return $conexao;
+        }
 
-    function voltarIndex(){
-        header("Location:index.php");
-    }
+        function inserirPessoa($modulo) { 
+            if($_REQUEST['nome']) {
+                global $acaoss;
+                global $obj;
+                $sql = $acaoss. $modulo. $obj. " VALUES ('{$_REQUEST["nome"]}','{$_REQUEST["sexo"]}',sysdate(),sysdate(),'{$_REQUEST["empresa"]}')";
+            }else{
+                global $acaoss;
+                $sql = $acaoss." $modulo (empresa) 
+                VALUES ('{$_REQUEST["empresa"]}')";
+            }
+            banco($sql);
+            voltarIndex(); 
+        }
 
-?>
+        function alterarPessoa($modulo) {
+            global $acaoss;
+            if($_REQUEST['_modulo']=="empresas"){
+                $sql = $acaoss." $modulo SET empresa='{$_REQUEST["empresa"]}' WHERE idempresa='{$_REQUEST["idempresa"]}'";
+            }else{
+                $sql = $acaoss." $modulo SET nome='{$_REQUEST["nome"]}',sexo='{$_REQUEST["sexo"]}',alteradoem=now() WHERE id='{$_REQUEST["id"]}'";
+        }
+            banco($sql);
+            voltarIndex();
+        }
+
+        function excluirPessoa($modulo) {
+            global $acaoss;
+            if($_REQUEST['_acao']=='d' && $_REQUEST['_modulo']=="empresas"){
+                $sql = $acaoss. $modulo." WHERE idempresa='{$_REQUEST["id"]}'";
+            }else{
+                $sql = $acaoss. $modulo." WHERE id='{$_REQUEST["id"]}'";
+            }
+            banco($sql);
+            voltarIndex();
+        }
+
+        function selectAllPessoa() {
+            $banco = abrirBanco();
+            $sql = "SELECT p.id,p.nome,DATE_FORMAT(p.criadoem,'%d/%m/%Y %H:%i:%s') as criadoem,DATE_FORMAT(p.alteradoem,'%d/%m/%Y %H:%i:%s') as alteradoem,p.sexo,e.empresa FROM pessoa p JOIN empresas e on (p.idempresa = e.idempresa) ORDER BY p.nome";
+            $resultado = $banco->query($sql) or die ('erro no sql :'.mysqli_error($banco));
+            $banco->close();
+            while($row = mysqli_fetch_array($resultado)) {
+                $grupo[] = $row;
+            }
+            return $grupo;
+        }
+
+        function selectIdPessoa($id) {
+            $banco = abrirBanco();
+            $sql = "SELECT * FROM pessoa WHERE id=".$id;
+            $resultado = $banco->query($sql) or die ('erro no sql :'.mysqli_error($banco));
+            $banco->close();
+            $pessoa = mysqli_fetch_assoc($resultado);
+            return $pessoa;
+        }
+
+        function voltarIndex(){
+            if($_REQUEST['_modulo']=="pessoa"){
+                header("Location:index.php?_modulo=pessoa&_colunas[]=nome&_colunas[]=sexo&_colunas[]=criadoem&_colunas[]=alteradoem");
+            }else{
+                header("Location:index.php?_modulo=empresas&_colunas[]=idempresa&_colunas[]=empresa");
+            }
+            
+        }
+        //funçao para abrir e fechar o banco de dados
+        function banco($sql){
+            $banco = abrirBanco();
+            $banco->query($sql) or die ('erro no sql :'.mysqli_error($banco));
+            $banco->close();
+            voltarIndex();
+        } 
+
+    ?>
